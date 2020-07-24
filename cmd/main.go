@@ -126,7 +126,7 @@ func generateTokenPair(userID primitive.ObjectID) (map[string]string, error) {
 			return err
 		}
 
-		result, err := collection.InsertOne(sessionContext, token)
+		_ , err := collection.InsertOne(sessionContext, token)
 		if err != nil {
 			return err
 		}
@@ -135,7 +135,6 @@ func generateTokenPair(userID primitive.ObjectID) (map[string]string, error) {
 			return err
 		}
 
-		log.Println(result.InsertedID)
 		return nil
 	})
 	if err != nil {
@@ -253,7 +252,7 @@ func refreshTokenPair(w http.ResponseWriter, r *http.Request) {
 				return err
 			}
 
-			result, err := collection.DeleteOne(sessionContext, filter)
+			_ , err := collection.DeleteOne(sessionContext, filter)
 			if err != nil {
 				return err
 			}
@@ -262,7 +261,6 @@ func refreshTokenPair(w http.ResponseWriter, r *http.Request) {
 				return err
 			}
 
-			log.Println(result.DeletedCount)
 			return nil
 		})
 		if err != nil {
@@ -329,7 +327,7 @@ func deleteSpecificToken(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
-		result, err := collection.DeleteOne(sessionContext, filter)
+		_ , err := collection.DeleteOne(sessionContext, filter)
 		if err != nil {
 			return err
 		}
@@ -338,7 +336,6 @@ func deleteSpecificToken(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
-		log.Println(result.DeletedCount)
 		return nil
 	})
 	if err != nil {
@@ -390,7 +387,7 @@ func deleteAllTokensForUser(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
-		result, err := collection.DeleteMany(sessionContext, filter)
+		_ , err := collection.DeleteMany(sessionContext, filter)
 		if err != nil {
 			return err
 		}
@@ -399,7 +396,6 @@ func deleteAllTokensForUser(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
-		log.Println(result.DeletedCount)
 		return nil
 	})
 	if err != nil {
@@ -424,7 +420,7 @@ func main() {
 
 	err := helper.PrepareWorkplace() // This function is used to create an empty application database and collection "tokens".
 	if err != nil {                  // This is necessary because in order to work with transactions, the database and collection
-		log.Fatal(err)               // must be created prior to use the database and collection must be created prior to use.
+		log.Fatal(err)               // must be created.
 	}
 
 	router := mux.NewRouter()
