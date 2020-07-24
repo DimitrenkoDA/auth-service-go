@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	uuid "github.com/nu7hatch/gouuid"
 
@@ -107,13 +108,47 @@ func generateTokenPair(userID primitive.ObjectID) (map[string]string, error) {
 	token.AccessTokenUUID = newUuid.String()
 	token.Data = baseRefreshToken
 
-	collection := helper.ConnectionDB()
-	result, err := collection.InsertOne(context.TODO(), token)
+	client, err := helper.ConnectionDB()
 	if err != nil {
 		return nil, err
 	}
+	database := client.Database("auth-service-go")
+	collection := database.Collection("tokens")
 
-	log.Println(result)
+	newSession, err := client.StartSession()
+	if err != nil {
+		return nil, err
+	}
+	defer newSession.EndSession(context.TODO())
+
+	err = mongo.WithSession(context.TODO(), newSession, func(sessionContext mongo.SessionContext) error {
+		if err = newSession.StartTransaction(); err != nil {
+			return err
+		}
+
+		result, err := collection.InsertOne(sessionContext, token)
+		if err != nil {
+			return err
+		}
+
+		if err = newSession.CommitTransaction(sessionContext); err != nil {
+			return err
+		}
+
+		log.Println(result.InsertedID)
+		return nil
+	})
+	if err != nil {
+		if abortErr := newSession.AbortTransaction(context.TODO()); abortErr != nil {
+			return nil, abortErr
+		}
+		return nil, err
+	}
+
+	err = helper.DisconnectionDB(*client)
+	if err != nil {
+		return nil, err
+	}
 
 	return map[string]string{
 		"access_token":  t,
@@ -184,7 +219,15 @@ func refreshTokenPair(w http.ResponseWriter, r *http.Request) {
 	if refreshClaims, ok := refreshToken.Claims.(jwt.MapClaims); ok && refreshToken.Valid {
 
 		filter := bson.M{"access_token_uuid": refreshClaims["access_token_uuid"]}
-		collection := helper.ConnectionDB()
+
+		client, err := helper.ConnectionDB()
+		if err != nil {
+			InternalServerError(w, err)
+			return
+		}
+
+		database := client.Database("auth-service-go")
+		collection := database.Collection("tokens")
 
 		var baseToken models.Token
 		err = collection.FindOne(context.TODO(), filter).Decode(&baseToken)
@@ -198,12 +241,38 @@ func refreshTokenPair(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		removingResult, err := collection.DeleteOne(context.TODO(), filter)
+		newSession, err := client.StartSession()
 		if err != nil {
 			InternalServerError(w, err)
 			return
 		}
-		log.Println(removingResult)
+		defer newSession.EndSession(context.TODO())
+
+		err = mongo.WithSession(context.TODO(), newSession, func(sessionContext mongo.SessionContext) error {
+			if err = newSession.StartTransaction(); err != nil {
+				return err
+			}
+
+			result, err := collection.DeleteOne(sessionContext, filter)
+			if err != nil {
+				return err
+			}
+
+			if err = newSession.CommitTransaction(sessionContext); err != nil {
+				return err
+			}
+
+			log.Println(result.DeletedCount)
+			return nil
+		})
+		if err != nil {
+			if abortErr := newSession.AbortTransaction(context.TODO()); abortErr != nil {
+				InternalServerError(w, err)
+				return
+			}
+			InternalServerError(w, err)
+			return
+		}
 
 		tokens, err := generateTokenPair(userID)
 		if err != nil {
@@ -212,6 +281,12 @@ func refreshTokenPair(w http.ResponseWriter, r *http.Request) {
 		}
 
 		tokens["refresh_token"] = base64.StdEncoding.EncodeToString([]byte(tokens["refresh_token"]))
+
+		err = helper.DisconnectionDB(*client)
+		if err != nil {
+			InternalServerError(w, err)
+			return
+		}
 
 		Ok(w, map[string]interface{}{
 			"access_token": tokens["access_token"],
@@ -233,14 +308,55 @@ func deleteSpecificToken(w http.ResponseWriter, r *http.Request) {
 
 	filter := bson.M{"_id": tokenID}
 
-	collection := helper.ConnectionDB()
-	result, err := collection.DeleteOne(context.TODO(), filter)
+	client, err := helper.ConnectionDB()
 	if err != nil {
 		InternalServerError(w, err)
 		return
 	}
 
-	Ok(w, result)
+	database := client.Database("auth-service-go")
+	collection := database.Collection("tokens")
+
+	newSession, err := client.StartSession()
+	if err != nil {
+		InternalServerError(w, err)
+		return
+	}
+	defer newSession.EndSession(context.TODO())
+
+	err = mongo.WithSession(context.TODO(), newSession, func(sessionContext mongo.SessionContext) error {
+		if err = newSession.StartTransaction(); err != nil {
+			return err
+		}
+
+		result, err := collection.DeleteOne(sessionContext, filter)
+		if err != nil {
+			return err
+		}
+
+		if err = newSession.CommitTransaction(sessionContext); err != nil {
+			return err
+		}
+
+		log.Println(result.DeletedCount)
+		return nil
+	})
+	if err != nil {
+		if abortErr := newSession.AbortTransaction(context.TODO()); abortErr != nil {
+			InternalServerError(w, err)
+			return
+		}
+		InternalServerError(w, err)
+		return
+	}
+
+	err = helper.DisconnectionDB(*client)
+	if err != nil {
+		InternalServerError(w, err)
+		return
+	}
+
+	Ok(w, "Token removed")
 }
 
 func deleteAllTokensForUser(w http.ResponseWriter, r *http.Request) {
@@ -253,17 +369,63 @@ func deleteAllTokensForUser(w http.ResponseWriter, r *http.Request) {
 
 	filter := bson.M{"user_id": token.UserID}
 
-	collection := helper.ConnectionDB()
-	result, err := collection.DeleteMany(context.TODO(), filter)
+	client, err := helper.ConnectionDB()
 	if err != nil {
 		InternalServerError(w, err)
 		return
 	}
 
-	Ok(w, result)
+	database := client.Database("auth-service-go")
+	collection := database.Collection("tokens")
+
+	newSession, err := client.StartSession()
+	if err != nil {
+		InternalServerError(w, err)
+		return
+	}
+	defer newSession.EndSession(context.TODO())
+
+	err = mongo.WithSession(context.TODO(), newSession, func(sessionContext mongo.SessionContext) error {
+		if err = newSession.StartTransaction(); err != nil {
+			return err
+		}
+
+		result, err := collection.DeleteMany(sessionContext, filter)
+		if err != nil {
+			return err
+		}
+
+		if err = newSession.CommitTransaction(sessionContext); err != nil {
+			return err
+		}
+
+		log.Println(result.DeletedCount)
+		return nil
+	})
+	if err != nil {
+		if abortErr := newSession.AbortTransaction(context.TODO()); abortErr != nil {
+			InternalServerError(w, err)
+			return
+		}
+		InternalServerError(w, err)
+		return
+	}
+
+	err = helper.DisconnectionDB(*client)
+	if err != nil {
+		InternalServerError(w, err)
+		return
+	}
+
+	Ok(w, "All tokens for user are deleted")
 }
 
 func main() {
+
+	err := helper.PrepareWorkplace() // This function is used to create an empty application database and collection "tokens".
+	if err != nil {                  // This is necessary because in order to work with transactions, the database and collection
+		log.Fatal(err)               // must be created prior to use the database and collection must be created prior to use.
+	}
 
 	router := mux.NewRouter()
 
@@ -279,7 +441,7 @@ func main() {
 
 	log.Println("Listening on address:", addr)
 
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)
 	}
