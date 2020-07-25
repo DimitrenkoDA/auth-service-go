@@ -1,3 +1,5 @@
+// +heroku install go build -o bin/server cmd/main.go
+
 module github.com/DimitrenkoDA/auth-service-go
 
 go 1.13
