@@ -2,6 +2,7 @@ package helper
 
 import (
 	"context"
+	"fmt"
 	"github.com/DimitrenkoDA/auth-service-go/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -12,10 +13,10 @@ import (
 )
 
 func ConnectionDB() (*mongo.Client, error){
-	mongoURL := os.Getenv("MONGODB_URI")
+	mongoURL := "mongodb://localhost:27017,127.0.0.1:27017/?replicaSet=rs0"
 
-	if len(mongoURL) == 0 {
-		mongoURL = "mongodb://localhost:27017,127.0.0.1:27017/?replicaSet=rs0"
+	if uri := os.Getenv("MONGODB_URI"); len(uri) > 0 {
+		mongoURL = fmt.Sprintf("%s?retryWrites=false", uri)
 	}
 
 	clientOptions := options.Client().ApplyURI(mongoURL)
