@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"go.mongodb.org/mongo-driver/mongo"
+	"os"
 
 	uuid "github.com/nu7hatch/gouuid"
 
@@ -22,7 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-const addr = ":8000"
+const DefaultAddr = ":8000"
 
 func UnprocessableEntity(w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusUnprocessableEntity)
@@ -429,6 +430,12 @@ func main() {
 	router.HandleFunc("/tokens/refresh", refreshTokenPair).Methods(http.MethodPost)
 	router.HandleFunc("/tokens/{token_id}", deleteSpecificToken).Methods(http.MethodDelete)
 	router.HandleFunc("/tokens", deleteAllTokensForUser).Methods(http.MethodDelete)
+
+	addr := DefaultAddr
+
+	if port := os.Getenv("PORT"); len(port) > 0 {
+		addr = ":" + port
+	}
 
 	server := http.Server{
 		Addr:    addr,
