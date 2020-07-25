@@ -108,11 +108,11 @@ func generateTokenPair(userID primitive.ObjectID) (map[string]string, error) {
 	token.AccessTokenUUID = newUuid.String()
 	token.Data = baseRefreshToken
 
-	client, err := helper.ConnectionDB()
+	client, dbname, err := helper.ConnectionDB()
 	if err != nil {
 		return nil, err
 	}
-	database := client.Database("auth-service-go")
+	database := client.Database(dbname)
 	collection := database.Collection("tokens")
 
 	newSession, err := client.StartSession()
@@ -219,13 +219,13 @@ func refreshTokenPair(w http.ResponseWriter, r *http.Request) {
 
 		filter := bson.M{"access_token_uuid": refreshClaims["access_token_uuid"]}
 
-		client, err := helper.ConnectionDB()
+		client, dbname, err := helper.ConnectionDB()
 		if err != nil {
 			InternalServerError(w, err)
 			return
 		}
 
-		database := client.Database("auth-service-go")
+		database := client.Database(dbname)
 		collection := database.Collection("tokens")
 
 		var baseToken models.Token
@@ -306,13 +306,13 @@ func deleteSpecificToken(w http.ResponseWriter, r *http.Request) {
 
 	filter := bson.M{"_id": tokenID}
 
-	client, err := helper.ConnectionDB()
+	client, dbname, err := helper.ConnectionDB()
 	if err != nil {
 		InternalServerError(w, err)
 		return
 	}
 
-	database := client.Database("auth-service-go")
+	database := client.Database(dbname)
 	collection := database.Collection("tokens")
 
 	newSession, err := client.StartSession()
@@ -366,13 +366,13 @@ func deleteAllTokensForUser(w http.ResponseWriter, r *http.Request) {
 
 	filter := bson.M{"user_id": token.UserID}
 
-	client, err := helper.ConnectionDB()
+	client, dname, err := helper.ConnectionDB()
 	if err != nil {
 		InternalServerError(w, err)
 		return
 	}
 
-	database := client.Database("auth-service-go")
+	database := client.Database(dname)
 	collection := database.Collection("tokens")
 
 	newSession, err := client.StartSession()
