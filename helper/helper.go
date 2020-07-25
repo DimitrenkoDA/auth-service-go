@@ -50,7 +50,7 @@ func PrepareWorkplace() error{
 
 	insertResult, err := collection.InsertOne(context.TODO(), example)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(fmt.Errorf("failed to insert example: %w", err))
 	}
 	log.Println(insertResult.InsertedID)
 
