@@ -426,6 +426,13 @@ func main() {
 
 	router := mux.NewRouter()
 
+
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if _, err := w.Write([]byte("It works!")); err != nil {
+			log.Println("Failed to write response", err)
+		}
+	})
+
 	router.HandleFunc("/tokens", getTokenPair).Methods(http.MethodPost)
 	router.HandleFunc("/tokens/refresh", refreshTokenPair).Methods(http.MethodPost)
 	router.HandleFunc("/tokens/{token_id}", deleteSpecificToken).Methods(http.MethodDelete)
