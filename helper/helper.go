@@ -13,7 +13,7 @@ import (
 )
 
 func ConnectionDB() (*mongo.Client, error){
-	mongoURL := "mongodb://localhost:27017,127.0.0.1:27017/?replicaSet=rs0"
+	mongoURL := "mongodb://localhost:27017,127.0.0.1:27017/auth-service-go?replicaSet=rs0"
 
 	if uri := os.Getenv("MONGODB_URI"); len(uri) > 0 {
 		mongoURL = fmt.Sprintf("%s?retryWrites=false", uri)
@@ -43,7 +43,7 @@ func PrepareWorkplace() error{
 		log.Fatal(err)
 	}
 
-	database := client.Database("auth-service-go")
+	database := client.Database("")
 	collection := database.Collection("tokens")
 
 	var example models.Token
