@@ -8,10 +8,17 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"log"
+	"os"
 )
 
 func ConnectionDB() (*mongo.Client, error){
-	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017,127.0.0.1:27017/?replicaSet=rs0")
+	mongoURL := os.Getenv("MONGODB_URI")
+
+	if len(mongoURL) == 0 {
+		mongoURL = "mongodb://localhost:27017,127.0.0.1:27017/?replicaSet=rs0"
+	}
+
+	clientOptions := options.Client().ApplyURI(mongoURL)
 
 	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {
